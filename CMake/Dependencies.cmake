@@ -112,6 +112,18 @@ include_directories (
   ${zlib_BINARY_DIR}
 ) # @TODO HACK
 
+# zlib's own CMake build generates zconf.h into zlib_BINARY_DIR, but
+# libpng's genout.cmake codegen step compiles a standalone test program
+# that #includes zlib.h using a raw compiler invocation which only
+# searches next to zlib.h itself (zlib_SOURCE_DIR), so it can't find the
+# generated header there and fails with "Cannot open include file:
+# 'zconf.h'". zlib ships a pre-built fallback for exactly this case
+# (used by its non-CMake builds); copy it into place. Re-copied on every
+# configure since FetchContent re-extracts zlib_SOURCE_DIR from scratch.
+if (NOT EXISTS "${zlib_SOURCE_DIR}/zconf.h")
+  file (COPY_FILE "${zlib_SOURCE_DIR}/zconf.h.included" "${zlib_SOURCE_DIR}/zconf.h")
+endif ()
+
 if (WIN32)
   carla_dependency_option (ZLIB_LIBRARY ${zlib_BINARY_DIR}/zlibstatic${CARLA_DEBUG_AFFIX}.lib)
 else ()
