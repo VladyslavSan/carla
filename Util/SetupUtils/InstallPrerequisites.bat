@@ -20,6 +20,26 @@ set visual_studio_components=^
     Microsoft.VisualStudio.Component.VC.14.38.17.8.x86.x64 ^
     Microsoft.Component.PythonTools
 
+rem Subset used to check whether VS is ALREADY set up (see vswhere use below).
+rem Deliberately excludes Windows10SDK.22621: that exact SDK version is often
+rem unavailable through newer VS installer channels even though a newer SDK
+rem (which builds CARLA fine) is installed instead -- requiring that exact
+rem pinned component made the "is it already installed" check permanently
+rem fail on such machines, so InstallPrerequisites.bat re-downloaded and
+rem re-ran the VS installer's --add step on every single invocation.
+set visual_studio_components_required=^
+    Microsoft.VisualStudio.Workload.NativeDesktop ^
+    Microsoft.VisualStudio.Workload.NativeGame ^
+    Microsoft.VisualStudio.Workload.ManagedDesktop ^
+    Microsoft.VisualStudio.Component.VC.CMake.Project ^
+    Microsoft.Net.Component.4.8.SDK ^
+    Microsoft.Net.ComponentGroup.4.8.1.DeveloperTools ^
+    Microsoft.VisualStudio.Component.VC.Llvm.Clang ^
+    Microsoft.VisualStudio.Component.VC.Llvm.ClangToolset ^
+    Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Llvm.Clang ^
+    Microsoft.VisualStudio.Component.VC.14.38.17.8.x86.x64 ^
+    Microsoft.Component.PythonTools
+
 rem -- PARSE COMMAND LINE ARGUMENTS --
 
 :parse
@@ -49,22 +69,24 @@ rem -- MAIN --
 
 rem -- INSTALL VISUAL STUDIO IF NOT FOUND --
 setlocal EnableDelayedExpansion
-set "vs_found=false"
-if exist "%PROGRAMFILES%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" (
-    set "vs_found=true"
-)
-if exist "%PROGRAMFILES%\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat" (
-    set "vs_found=true"
-)
-if exist "%PROGRAMFILES%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" (
-    set "vs_found=true"
+
+rem Ask vswhere which installed VS instance (if any) already has every
+rem required component, rather than assuming a specific year/edition
+rem folder -- a machine may have several VS versions installed and the
+rem newest one is not necessarily the one with what CARLA needs.
+set "vswhere_exe=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+set "vs_install_path="
+if exist "%vswhere_exe%" (
+    for /f "usebackq tokens=*" %%i in (`"%vswhere_exe%" -all -products * -requires %visual_studio_components_required% -property installationPath -latest`) do (
+        set "vs_install_path=%%i"
+    )
 )
 
-if "!vs_found!"=="true" (
-    echo Found Visual Studio 2022.
+if not "!vs_install_path!"=="" (
+    echo Found Visual Studio with required components at "!vs_install_path!".
     goto end_vs_install
 ) else (
-    echo Could not find Visual Studio 2022. Downloading...
+    echo Could not find a Visual Studio installation with all required components. Downloading...
 )
 
 if not exist %cd%\Temp (
