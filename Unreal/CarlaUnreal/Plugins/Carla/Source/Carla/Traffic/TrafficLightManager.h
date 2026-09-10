@@ -86,21 +86,21 @@ private:
   TArray<TObjectPtr<ATrafficSignBase>> TrafficSigns;
 
   UPROPERTY(EditAnywhere, Category= "Traffic Light Manager")
-  TSubclassOf<AActor> TrafficLightModel_RHT;
+  TSoftClassPtr<AActor> TrafficLightModel_RHT;
 
   UPROPERTY(EditAnywhere, Category= "Traffic Light Manager")
-  TSubclassOf<AActor> TrafficLightModel_LHT;
+  TSoftClassPtr<AActor> TrafficLightModel_LHT;
 
 
   // Relates an OpenDRIVE type to a traffic sign blueprint
   UPROPERTY(EditAnywhere, Category= "Traffic Light Manager")
-  TMap<FString, TSubclassOf<AActor>> TrafficSignsModels;
+  TMap<FString, TSoftClassPtr<AActor>> TrafficSignsModels;
 
   UPROPERTY(EditAnywhere, Category= "Traffic Light Manager")
   TMap<FString, TSubclassOf<USignComponent>> SignComponentModels;
 
   UPROPERTY(EditAnywhere, Category= "Traffic Light Manager")
-  TMap<FString, TSubclassOf<AActor>> SpeedLimitModels;
+  TMap<FString, TSoftClassPtr<AActor>> SpeedLimitModels;
 
   UPROPERTY(Category = "Traffic Light Manager", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
   TObjectPtr<USceneComponent> SceneComponent;
