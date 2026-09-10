@@ -14,7 +14,6 @@
 #include "Misc/FileHelper.h"
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
-#include "UObject/ConstructorHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/StreamableManager.h"
 #include "Engine/StaticMeshActor.h"
@@ -34,11 +33,6 @@ ULoadAssetMaterialsCommandlet::ULoadAssetMaterialsCommandlet()
   ReadConfigFile = true;
 
 #if WITH_EDITORONLY_DATA
-
-  static ConstructorHelpers::FObjectFinder<UBlueprint> RoadPainterBlueprint(TEXT(
-    "Blueprint'/Game/Carla/Blueprints/LevelDesign/RoadPainterPreset.RoadPainterPreset'"));
-
-  RoadPainterSubclass = (UClass*)RoadPainterBlueprint.Object->GeneratedClass;
 
   // Dirt
   DecalNamesMap.Add("dirt1", "MaterialInstanceConstant'/Game/Carla/Static/Decals/Road/RoadDirt/DI_RoadDirt_01.DI_RoadDirt_01'");
