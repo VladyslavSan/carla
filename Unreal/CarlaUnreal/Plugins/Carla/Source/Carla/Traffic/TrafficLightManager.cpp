@@ -10,6 +10,7 @@
 #include "YieldSignComponent.h"
 #include "SpeedLimitComponent.h"
 #include "Components/BoxComponent.h"
+#include "Misc/PackageName.h"
 #include "OpenDrive/OpenDrive.h"
 #include "OpenDrive/MapLogicParser.h"
 
@@ -21,6 +22,15 @@
 
 
 #include <string>
+
+// Soft reference to the class a Blueprint asset generates. That class is the object "<Name>_C" inside the
+// asset's package (/Game/Path/BP_X.BP_X_C); a bare package path resolves to the UBlueprint asset (or nothing),
+// not to a class, so LoadSynchronous() would return null.
+static TSoftClassPtr<AActor> BlueprintClass(const FString &PackagePath)
+{
+  return TSoftClassPtr<AActor>(FSoftObjectPath(
+      PackagePath + TEXT(".") + FPackageName::GetShortName(PackagePath) + TEXT("_C")));
+}
 
 ATrafficLightManager::ATrafficLightManager()
 {
@@ -39,30 +49,28 @@ ATrafficLightManager::ATrafficLightManager()
   // EXCEPTION_ACCESS_VIOLATION. Soft paths defer the actual load to
   // SpawnTrafficLights()/SpawnSignals(), which only ever run at gameplay
   // time, long after boot -- safe by construction.
-  TrafficLightModel_RHT = TSoftClassPtr<AActor>(FSoftObjectPath(
-      TEXT("/Game/Carla/Blueprints/TrafficLight/BP_TLOpenDrive_RHT")));
-  TrafficLightModel_LHT = TSoftClassPtr<AActor>(FSoftObjectPath(
-      TEXT("/Game/Carla/Blueprints/TrafficLight/BP_TLOpenDrive_LHT")));
+  TrafficLightModel_RHT = BlueprintClass(TEXT("/Game/Carla/Blueprints/TrafficLight/BP_TLOpenDrive_RHT"));
+  TrafficLightModel_LHT = BlueprintClass(TEXT("/Game/Carla/Blueprints/TrafficLight/BP_TLOpenDrive_LHT"));
 
   // Default traffic signs models
   TrafficSignsModels.Add(carla::road::SignalType::StopSign().c_str(),
-      TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_Stop01"))));
+      BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_Stop01")));
   SignComponentModels.Add(carla::road::SignalType::StopSign().c_str(), UStopSignComponent::StaticClass());
 
   TrafficSignsModels.Add(carla::road::SignalType::YieldSign().c_str(),
-      TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_Yield01"))));
+      BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_Yield01")));
   SignComponentModels.Add(carla::road::SignalType::YieldSign().c_str(), UYieldSignComponent::StaticClass());
 
-  SpeedLimitModels.Add("30", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit30"))));
-  SpeedLimitModels.Add("40", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit40"))));
-  SpeedLimitModels.Add("50", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit50"))));
-  SpeedLimitModels.Add("60", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit60"))));
-  SpeedLimitModels.Add("70", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit70"))));
-  SpeedLimitModels.Add("80", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit80"))));
-  SpeedLimitModels.Add("90", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit90"))));
-  SpeedLimitModels.Add("100", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit100"))));
-  SpeedLimitModels.Add("110", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit110"))));
-  SpeedLimitModels.Add("120", TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit120"))));
+  SpeedLimitModels.Add("30", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit30")));
+  SpeedLimitModels.Add("40", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit40")));
+  SpeedLimitModels.Add("50", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit50")));
+  SpeedLimitModels.Add("60", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit60")));
+  SpeedLimitModels.Add("70", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit70")));
+  SpeedLimitModels.Add("80", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit80")));
+  SpeedLimitModels.Add("90", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit90")));
+  SpeedLimitModels.Add("100", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit100")));
+  SpeedLimitModels.Add("110", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit110")));
+  SpeedLimitModels.Add("120", BlueprintClass(TEXT("/Game/Carla/Static/TrafficSign/BP_SpeedLimit120")));
 
   TrafficLightGroupMissingId = -2;
 }
@@ -531,6 +539,11 @@ void ATrafficLightManager::SpawnTrafficLights()
 
     TSoftClassPtr<AActor> TrafficLightModelSoft = IsRHT ? TrafficLightModel_RHT : TrafficLightModel_LHT;
     UClass* TrafficLightModel = TrafficLightModelSoft.LoadSynchronous();
+    if (TrafficLightModel == nullptr)
+    {
+      UE_LOG(LogCarla, Error, TEXT("Could not load traffic light class %s"), *TrafficLightModelSoft.ToString());
+      continue;
+    }
     ATrafficLightBase * TrafficLight = GetWorld()->SpawnActor<ATrafficLightBase>(
         TrafficLightModel,
         SpawnLocation,
@@ -624,8 +637,15 @@ void ATrafficLightManager::SpawnSignals()
       SpawnParams.SpawnCollisionHandlingOverride =
           ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
       SpawnParams.OverrideLevel = GM->GetULevelFromName("TrafficSigns");
+      UClass* TrafficSignModel = TrafficSignsModels[SignalType].LoadSynchronous();
+      if (TrafficSignModel == nullptr)
+      {
+        UE_LOG(LogCarla, Error, TEXT("Could not load traffic sign class %s"),
+            *TrafficSignsModels[SignalType].ToString());
+        continue;
+      }
       ATrafficSignBase * TrafficSign = GetWorld()->SpawnActor<ATrafficSignBase>(
-          TrafficSignsModels[SignalType].LoadSynchronous(),
+          TrafficSignModel,
           SpawnLocation,
           SpawnRotation,
           SpawnParams);
@@ -681,8 +701,15 @@ void ATrafficLightManager::SpawnSignals()
       SpawnParams.SpawnCollisionHandlingOverride =
           ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
       SpawnParams.OverrideLevel = GM->GetULevelFromName("TrafficSigns");
+      const TSoftClassPtr<AActor> &SpeedLimitModelSoft = SpeedLimitModels[Signal->GetSubtype().c_str()];
+      UClass* SpeedLimitModel = SpeedLimitModelSoft.LoadSynchronous();
+      if (SpeedLimitModel == nullptr)
+      {
+        UE_LOG(LogCarla, Error, TEXT("Could not load speed limit sign class %s"), *SpeedLimitModelSoft.ToString());
+        continue;
+      }
       ATrafficSignBase * TrafficSign = GetWorld()->SpawnActor<ATrafficSignBase>(
-          SpeedLimitModels[Signal->GetSubtype().c_str()].LoadSynchronous(),
+          SpeedLimitModel,
           SpawnLocation,
           SpawnRotation,
           SpawnParams);
